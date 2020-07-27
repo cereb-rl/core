@@ -1,0 +1,33 @@
+{
+    "MDP": {
+        "name": "<class 'simple_rl.tasks.gym.GymMDPClass.GymMDP'>",
+        "params": {
+            "env_name": "Breakout-v0"
+        }
+    },
+    "AGENTS": {
+        "<class 'simple_rl.agents.func_approx.LinearQAgentClass.LinearQAgent'>": {
+            "params": {
+                "num_features": 100800,
+                "rand_init": true,
+                "alpha": 0.2,
+                "gamma": 0.99,
+                "epsilon": 0.2,
+                "anneal": true,
+                "explore": "uniform"
+            },
+            "index": 0
+        },
+        "<class 'simple_rl.agents.RandomAgentClass.RandomAgent'>": {
+            "params": {},
+            "index": 1
+        }
+    },
+    "MISC": {
+        "instances": 5,
+        "episodes": 50,
+        "steps": 50,
+        "track_disc_reward": false
+    },
+    "FUNC": "run_agents_on_mdp"
+}

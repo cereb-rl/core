@@ -1,0 +1,10 @@
+(MDP)
+	gym-Breakout-v0
+(Agents)
+	Linear-Q,0
+	Random,1
+(Params)
+	instances : 5
+	episodes : 50
+	steps : 50
+	track_disc_reward : False
