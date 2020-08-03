@@ -1,15 +1,11 @@
 from core.experiments.Experiment import Experiment
+from core.agents import RandomAgent, QLearningAgent
+import gym
 
-class State:
-    terminal = False
-
-    def __init__(self, num):
-        self.num = num
-
-    def is_terminal(self):
-        return self.terminal
-
-exp = Experiment()   
-trained_agent = exp.train()
-exp.test(trained_agent)
+env = gym.make("Taxi-v3").env
+randomAgent = RandomAgent(env.observation_space, env.action_space)
+qlearningAgent = QLearningAgent(env.observation_space, env.action_space)
+#rmaxAgent = RMaxAgent(env.observation_space, env.action_space)
+exp = Experiment(env_name="Taxi-v3", agents=[randomAgent, qlearningAgent], visuals=True)
+exp.train(1000)
 print("done")

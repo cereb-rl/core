@@ -7,8 +7,8 @@ Notes:
 
 # Python imports.
 import random
-import numpy as np
 from collections import defaultdict
+import numpy as np
 
 # Local classes.
 from core.agents.Agent import Agent
@@ -16,7 +16,7 @@ from core.utils.Models import KnownTabularModel
 from core.utils.Policy import TabularPolicy
 from core.utils.policy_helpers import *
 
-AgentParameters = {
+RMAX_DEFAULTS = {
     'name': 'RMaxAgent',
     'gamma': 0.95,
     'known_threshold': 2,
@@ -30,10 +30,9 @@ class RMaxAgent(Agent):
     '''
 
     def __init__(self, actions, hyperparameters={}, starting_policy=None):
-        Agent.__init__(self, actions, AgentParameters, hyperparameters)
+        Agent.__init__(self, actions, RMAX_PARAMETERS, hyperparameters)
         self.starting_policy = starting_policy
         self.model = KnownTabularModel(len(actions), self.max_reward, self.known_threshold)
-
         self.reset()
 
     def reset(self):

@@ -6,15 +6,17 @@ from collections import defaultdict
 from core.utils.Constants import Policy
 from core.utils.Models import TabularModel
 
+
 class TabularPolicy:
     '''
         Implements a tabular Q-function
     '''
-    def __init__(self, actions, default_value = 0):
+
+    def __init__(self, actions, default_value=0):
         self.actions = actions
         self.default_value = default_value
-        self.q_table = defaultdict(lambda: defaultdict(lambda: default_value)) # S -> A -> default_value
-        self.value_table = defaultdict(lambda: default_value) # S -> default_value
+        self.q_table = defaultdict(lambda: defaultdict(lambda: default_value))  # S -> A -> default_value
+        self.value_table = defaultdict(lambda: default_value)  # S -> default_value
 
     def set_q_value(self, state, action, new_value):
         '''
@@ -53,8 +55,8 @@ class TabularPolicy:
         if max_actions:
             return random.choice(max_actions)
         else:
-            return random.choice(self.actions)
-    
+            return random.randrange(self.actions)
+
     def get_max_q_value(self, state):
         '''
             Args:
@@ -63,7 +65,9 @@ class TabularPolicy:
             Summary:
                 Returns maximum Q value
         '''
-        action_values = list(self.q_table[state].values()) + [self.default_value]
+        action_values = list(self.q_table[state].values())
+        if not action_values:
+            return self.default_value
         return max(action_values)
 
     def get_q_value(self, state, action):
@@ -79,7 +83,7 @@ class TabularPolicy:
 
     # def save():
     #     pass
-        
+
     # def __getitem__(self, key):
     #     return self.q_table[key]
 
@@ -88,7 +92,6 @@ class TabularPolicy:
             return "Empty q-table"
         else:
             return self.q_table.__str__()
-
 
 # class TabularPolicy:
 #     '''
@@ -110,9 +113,9 @@ class TabularPolicy:
 #     # GETTERS
 
 #     def get_max_action(self, state):
-        
+
 #         return np.argmax(self.q_table[state])
-    
+
 #     def get_max_value(self, state):
 #         return np.max(self.q_table[state])
 
@@ -121,7 +124,7 @@ class TabularPolicy:
 
 #     def save():
 #         pass
-        
+
 #     # def __getitem__(self, key):
 #     #     return self.q_table[key]
 

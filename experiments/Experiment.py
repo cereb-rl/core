@@ -1,99 +1,180 @@
-
-import random
 from IPython.display import clear_output
 from time import sleep
 import gym
+import visdom
 import numpy as np
-import random
-from core.agents.QLearningAgent import QLearningAgent
-from core.agents.RMaxAgent import RMaxAgent
-from core.agents.ECubedAgent import ECubedAgent
+
 
 class Experiment:
-    def __init__(self):
-        pass
+    """
+    A simple experiment class
+    """
 
-    def train(self):
-        total_steps, total_penalties = 0, 0
-        episodes = 50
+    def __init__(self, exp_name="Experiment1", env_name="Taxi-v3", env=None, agents=None, verbose=False, visuals=False):
+        """
 
-        env = gym.make("Taxi-v3").env
-        agent = MDIEAgent(list(range(env.action_space.n)))
-        print("here")
-        for i in range(episodes):
-            #print(i)
-            steps, penalties = self.run_single_epsiode(env, agent)
+        :type agents: List[BaseAgent]
+        """
+        self.env_name = env_name
+        if env:
+            self.env = env
+        else:
+            self.env = gym.make(env_name).env
+        self.agents = agents if agents else []
+        self.exp_name = exp_name
+        agent_names: str = ', '.join(agent.get_name for agent in agents)
+        print(f'Starting {self.exp_name} on {self.env_name} environment with {agent_names}')
 
-            total_penalties += penalties
-            total_steps += steps
+        self.verbose = verbose
+        self.visuals = visuals
+        if self.visuals:
+            print("has visuals")
+            self.visdom = visdom.Visdom(env=exp_name)
+            self.agents_visdom = self.visdom.line(
+                Y=[[0 for _ in self.agents]],
+                X=[[0 for _ in self.agents]],
+                opts=dict(
+                    width=800,
+                    height=800,
+                    xlabel='Steps',
+                    ylabel='Episode Rewards',
+                    title='Episodic Reward Plot',
+                    legend=[agent.get_name for agent in self.agents]
+                ),
+            )
 
-            if i % 100 == 0:
-                clear_output(wait=True)
-            print(f"Episode: {i}")
+    # def train(self, num_steps: int):
+    #     """
+    #
+    #     :param num_steps:
+    #     :return:
+    #     """
+    #     if not self.agents:
+    #         print(f'{self.exp_name} has no agents to train. \n Please add agents to experiment.')
+    #     for agent in self.agents:
+    #         print(f"Starting training on {agent.get_name}")
+    #         self.train_single_agent(agent, num_steps)
+    def train(self, num_episodes: int):
+        """
+
+        :param num_episodes:
+        :return:
+        """
+        if not self.agents:
+            print(f'{self.exp_name} has no agents to train. \n Please add agents to experiment.')
+        total_steps = [0 for _ in self.agents]
+        total_rewards = [0 for _ in self.agents]
+        loop_count = 0
+        for i in range(len(self.agents)):
+            print(f"Starting training on {self.agents[i].get_name}")
+        for ep in range(num_episodes):
+            loop_rewards = [0 for _ in self.agents]
+            for i in range(len(self.agents)):
+                # if total_steps[i] >= num_steps:
+                #     continue
+                steps, rewards = self.run_single_episode(self.agents[i], True)
+                loop_rewards[i] += rewards/steps
+
+                total_rewards[i] += rewards
+                total_steps[i] += steps
+                #total_episodes[i] += 1
+
+                if ep % 100 == 0:
+                    clear_output(wait=True)
+                    print(f'Episode: {ep} for agent {self.agents[i].get_name}')
+                loop_count += 1
+            self.visdom.line(
+                Y=[loop_rewards],
+                X=[[loop_count+1 for _ in self.agents]],
+                win=self.agents_visdom,
+                update='append'
+            )
 
         print("Training finished.\n")
 
-        print(f"Results after {episodes} episodes:")
-        print(f"Average timesteps per episode: {total_steps / episodes}")
-        print(f"Average penalties per episode: {total_penalties / episodes}")
+        for i in range(len(self.agents)):
+            print(f"Results after {ep} episodes:")
+            print(f"Average timesteps per episode: {total_steps[i] / ep}")
+            print(f"Average rewards per episode: {total_rewards[i] / ep}")
+            print()
 
+
+    def train_single_agent(self, agent, num_steps: int):
+        """
+
+        :param agent:
+        :param num_steps:
+        """
+        total_steps, num_episodes, total_reward = 0, 0, 0
+        while total_steps < num_steps:
+            steps, rewards = self.run_single_episode(agent, True)
+
+            total_reward += rewards
+            total_steps += steps
+            num_episodes += 1
+
+            if num_episodes % 100 == 0:
+                clear_output(wait=True)
+            print(f'Episode: {num_episodes}')
+
+        print("Training finished.\n")
+
+        print(f"Results after {num_episodes} episodes:")
+        print(f"Average timesteps per episode: {total_steps / num_episodes}")
+        print(f"Average rewards per episode: {total_reward / num_episodes}")
+        print()
         return agent
 
-    def run_single_epsiode(self, env, agent, verbose=False):
-        state = env.reset()
-        steps, penalties, reward = 0, 0, 0
+    def run_single_episode(self, agent, is_train=False):
+        """
+
+        :param is_train: Is this a training episode?
+        :param agent: Agent to be trained
+        :return: total number of steps and total rewards obtained
+        """
+        state = self.env.reset()
+        action = agent.start_of_episode(state)
+        steps, rewards = 0, 0
         done = False
-        frames = [] # for animation
-        #action = 0
-        #states = [State(i) for i in range(500)]
-        prev_state = state
-        
+        frames = []  # for animation
+
         while not done:
-            action = agent.select_action(state)
-            prev_state = state
-            state, reward, done, info = env.step(action)
-            # agent
-            # if done:
-            #     states[state].terminal = True
-            agent.update(prev_state, action, reward, state)
-            #print(prev_state, action, state, reward, done, info)
-            #print(agent)
-            if verbose:
+            state, reward, done, info = self.env.step(action)
+            if is_train:
+                action = agent.learn(state, reward)
+            else:
+                action = agent.predict(state)
+            if self.verbose:
                 # Put each rendered frame into dict for animation
                 frames.append({
-                    'frame': env.render(mode='ansi'),
+                    'frame': self.env.render(mode='ansi'),
                     'state': state,
                     'action': action,
                     'reward': reward
-                    }
+                }
                 )
 
-            if reward == -10:
-                penalties += 1
-
             steps += 1
-        #print(agent)
-        
-        if verbose:
+            rewards += reward
+
+        agent.end_of_episode()
+
+        if self.verbose:
             print(f"Results after {steps} timesteps:")
-            print(f"Average penalties: {penalties / steps}")
-            #print_frames(frames)
+            print(f"Average reward: {reward / steps}")
 
-        return steps, penalties
+        return steps, rewards
 
-    def test(self, agent):
-        # Hyperparameters
-        alpha = 0.1
-        gamma = 0.6
-        epsilon = 0.1
+    def add_agent(self, agent):
+        """
 
-        total_steps, total_penalties = 0, 0
-        episodes = 100
-
-        env = gym.make("Taxi-v3").env
-
-        self.run_single_epsiode(env, agent, True)
-
+        :param agent:
+        """
+        if self.agents:
+            self.agents.append(agent)
+        else:
+            self.agents = [agent]
+        print(f'Adding {agent} to {self}')
 
     def print_frames(frames):
         for i, frame in enumerate(frames):
@@ -105,3 +186,6 @@ class Experiment:
             print(f"Action: {frame['action']}")
             print(f"Reward: {frame['reward']}")
             sleep(.1)
+
+    def __str__(self):
+        return self.exp_name
