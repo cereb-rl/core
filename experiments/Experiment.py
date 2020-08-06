@@ -23,25 +23,13 @@ class Experiment:
         self.agents = agents if agents else []
         self.exp_name = exp_name
         agent_names: str = ', '.join(agent.get_name for agent in agents)
-        print(f'Starting {self.exp_name} on {self.env_name} environment with {agent_names}')
+        print(f'Starting {self.exp_name} on {self.exp_name} environment with {agent_names}')
 
         self.verbose = verbose
         self.visuals = visuals
         if self.visuals:
             print("has visuals")
-            self.visdom = visdom.Visdom(env=exp_name)
-            self.agents_visdom = self.visdom.line(
-                Y=[[0 for _ in self.agents]],
-                X=[[0 for _ in self.agents]],
-                opts=dict(
-                    width=800,
-                    height=800,
-                    xlabel='Steps',
-                    ylabel='Episode Rewards',
-                    title='Episodic Reward Plot',
-                    legend=[agent.get_name for agent in self.agents]
-                ),
-            )
+            self.visdom = visdom.Visdom(env=self.exp_name)
 
     # def train(self, num_steps: int):
     #     """
@@ -54,7 +42,7 @@ class Experiment:
     #     for agent in self.agents:
     #         print(f"Starting training on {agent.get_name}")
     #         self.train_single_agent(agent, num_steps)
-    def train(self, num_episodes: int):
+    def train(self, num_episodes: int, eval=False):
         """
 
         :param num_episodes:
@@ -62,6 +50,36 @@ class Experiment:
         """
         if not self.agents:
             print(f'{self.exp_name} has no agents to train. \n Please add agents to experiment.')
+        self.rewards_visdom = self.visdom.line(
+                Y=[[0 for _ in self.agents]],
+                X=[[0 for _ in self.agents]],
+                opts=dict(
+                    width=800,
+                    height=800,
+                    xlabel='Episodes',
+                    ylabel='Episode Rewards',
+                    title='Episodic Reward Plot',
+                    legend=[agent.get_name for agent in self.agents]
+                ),
+            )
+        self.steps_visdom = self.visdom.line(
+            Y=[[0 for _ in self.agents]],
+            X=[[0 for _ in self.agents]],
+            opts=dict(
+                width=800,
+                height=800,
+                xlabel='Episodes',
+                ylabel='Number of Steps',
+                title='Episodic Step Plot',
+                legend=[agent.get_name for agent in self.agents]
+            ),
+        )
+        # self.render_visdom = self.visdom.text(u'''<h1>Hello Visdom</h1><br>Visdom is a visual tool developed by Facebook specifically for <b>PyTorch</b>.
+        #            It has been used internally for a long time and was opened in March 2017.
+        #            Visdom is very lightweight, but it has very powerful features that support almost all scientific computing visualization tasks ''',
+        #  win='visdom',
+        #  opts={'title': u'Introduction to visdom'}
+        #  )
         total_steps = [0 for _ in self.agents]
         total_rewards = [0 for _ in self.agents]
         loop_count = 0
@@ -69,33 +87,43 @@ class Experiment:
             print(f"Starting training on {self.agents[i].get_name}")
         for ep in range(num_episodes):
             loop_rewards = [0 for _ in self.agents]
+            loop_steps = [0 for _ in self.agents]
             for i in range(len(self.agents)):
                 # if total_steps[i] >= num_steps:
                 #     continue
-                steps, rewards = self.run_single_episode(self.agents[i], True)
-                loop_rewards[i] += rewards/steps
+                steps, rewards = self.run_single_episode(self.agents[i], not eval)
+                rewards = rewards/steps
+                loop_steps[i] = steps
+                loop_rewards[i] = rewards
 
                 total_rewards[i] += rewards
                 total_steps[i] += steps
                 #total_episodes[i] += 1
 
-                if ep % 100 == 0:
+                if ep % (num_episodes/100) == 0:
                     clear_output(wait=True)
                     print(f'Episode: {ep} for agent {self.agents[i].get_name}')
+                    print('agent epsilon',self.agents[i].epsilon)
                 loop_count += 1
             self.visdom.line(
                 Y=[loop_rewards],
                 X=[[loop_count+1 for _ in self.agents]],
-                win=self.agents_visdom,
+                win=self.rewards_visdom,
+                update='append'
+            )
+            self.visdom.line(
+                Y=[loop_steps],
+                X=[[loop_count+1 for _ in self.agents]],
+                win=self.steps_visdom,
                 update='append'
             )
 
         print("Training finished.\n")
 
         for i in range(len(self.agents)):
-            print(f"Results after {ep} episodes:")
-            print(f"Average timesteps per episode: {total_steps[i] / ep}")
-            print(f"Average rewards per episode: {total_rewards[i] / ep}")
+            print(f"Results after {num_episodes} episodes:")
+            print(f"Average timesteps per episode: {total_steps[i] / num_episodes}")
+            print(f"Average rewards per episode: {total_rewards[i] / num_episodes}")
             print()
 
 
@@ -125,7 +153,7 @@ class Experiment:
         print()
         return agent
 
-    def run_single_episode(self, agent, is_train=False):
+    def run_single_episode(self, agent, is_train=False, max_steps=1000):
         """
 
         :param is_train: Is this a training episode?
@@ -138,7 +166,7 @@ class Experiment:
         done = False
         frames = []  # for animation
 
-        while not done:
+        while not done and steps <= max_steps:
             state, reward, done, info = self.env.step(action)
             if is_train:
                 action = agent.learn(state, reward)

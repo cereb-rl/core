@@ -20,14 +20,5 @@ class RandomAgent(BaseAgent):
         :param reward: 
         :return: 
         """
-        self.prev_state = state
-        self.prev_reward = reward
-        return self.action_space.sample()
-
-    def predict(self, state):
-        """
-
-        :param state:
-        :return:
-        """
+        BaseAgent.learn(self, state, reward)
         return self.action_space.sample()

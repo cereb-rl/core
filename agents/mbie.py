@@ -7,35 +7,52 @@ Notes:
 
 # Python imports.
 import random
-import numpy as np
 from collections import defaultdict
+import numpy as np
 
 # Local classes.
-from core.agents.Agent import Agent
+from core.agents.base import BaseAgent
 from core.utils.Models import KnownTabularModel
-from core.utils.Policy import TabularPolicy
+from core.utils.Policy import DiscreteTabularPolicy
 from core.utils.policy_helpers import *
 
-AgentParameters = {
-    'name': 'RMaxAgent',
+MBIE_DEFAULTS = {
     'gamma': 0.95,
     'known_threshold': 2,
     'max_reward': 1,
     'epsilon_one': 0.99,
-    'beta': 0.99,
+    'beta': 0.1
 }
 
-class MBIEAgent(Agent):
+
+class MBIEAgent(BaseAgent):
     '''
     Implementation for an R-Max Agent [Strehl, Li and Littman 2009]
     '''
 
-    def __init__(self, actions, hyperparameters={}, starting_policy=None):
-        Agent.__init__(self, AgentParameters, hyperparameters, starting_policy)
-        self.actions = actions
-        self.starting_policy = starting_policy
-        self.model = KnownTabularModel(len(actions), self.known_threshold)
+    def __init__(self, observation_space, action_space, name="MBIE Agent", params=None, starting_policy=None):
+        BaseAgent.__init__(self, observation_space, action_space, name)
 
+        # Hyper-parameters
+        self.params = dict(MBIE_DEFAULTS)
+        if params:
+            for key, value in params:
+                self.params[key] = value
+        self.max_reward = self.params['max_reward']
+        self.epsilon_one = self.params['epsilon_one']
+        self.known_threshold = self.params['known_threshold']
+        self.beta = self.params['beta']
+        self.gamma = self.params['gamma']
+        # self.max_reward = 1 / (1 - self.gamma)
+
+        # Policy Setup
+        self.starting_policy = starting_policy
+        self.backup_lim = int(np.log(1 / (self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
+        self.stepwise_backup_steps = 1
+        self.episodic_backup_steps = min(self.backup_lim, 5)
+
+        # Model Setup
+        self.model = KnownTabularModel(action_space.n, self.max_reward, self.known_threshold)
         self.reset()
 
     def reset(self):
@@ -44,47 +61,41 @@ class MBIEAgent(Agent):
             Resets the agent model and policy back to its tabula rasa config.
         '''
         self.model.reset()
-        self.policy = self.starting_policy if self.starting_policy else TabularPolicy(self.actions, self.max_reward)
+        self.policy = self.starting_policy if self.starting_policy else DiscreteTabularPolicy(self.observation_space,
+                                                                                              self.action_space,
+                                                                                              self.max_reward)
 
-    def select_action(self, state):
-        # # Update given s, a, r, s' : self.prev_state, self.prev_action, reward, state
-        # self.update(self.prev_state, self.prev_action, reward, state)
+    def learn(self, state, reward, done=False):
+        """
 
-        # Compute best action by argmaxing over Q values of all possible s,a pairs
-        action = self.policy.get_max_action(state)
+        :param state:
+        :param reward:
+        :param done:
+        :return:
+        """
+        action = self.policy.get_max_action(state)  # Exploit learned values
+        self.update(self.prev_state, self.prev_action, reward, state) # update model and policy
 
-        # Update pointers.
         self.prev_action = action
-        self.prev_state = state
-
+        BaseAgent.learn(self, state, reward, done)
         return action
 
+    def get_bellman_backup_function(self):
+        def update_fn(state, action, policy, model, gamma):
+            value = bellman_policy_backup(state, action, policy, model, gamma)
+            if self.model.get_count(state, action) > 0:
+                value += self.beta / np.sqrt(self.model.get_count(state, action))
+            return value
+        return update_fn
+
     def update(self, state, action, reward, next_state):
-        '''
-        Args:
-            state (State)
-            action (str)
-            reward (float)
-            next_state (State)
+        if not self.model.is_known(state, action):
+            # Add new data points if we haven't seen this s-a enough.
+            self.model.update(state, action, reward, next_state)
+            iterate_policy(self.policy, self.model, states=range(self.observation_space.n), num_steps=self.stepwise_backup_steps, gamma=self.gamma,
+                           update_fn=self.get_bellman_backup_function())
 
-        Summary:
-            Updates T and R.
-        '''
-        if state != None and action != None:
-            if not self.model.is_known(state, action):
-                # Add new data points if we haven't seen this s-a enough.
-                self.model.update(state, action, reward, next_state)
-                self.update_policy(state, action)
-
-    def update_policy(self, state, action):
-        #print("updating policy")
-        # Start updating Q values for subsequent states
-        lim = int(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
-        for _ in range(1, lim):
-            for curr_state in self.model.get_states():
-                for curr_action in self.actions:
-                    new_value = expected_q_value(curr_state,curr_action,self.policy,self.model) + self.beta/np.sqrt(self.model.get_count(curr_state, curr_action))
-                    self.policy.set_value(curr_state, curr_action, new_value)
-
-    def __str__(self):
-        return str(self.policy) + "\n" + str(self.model)
+    def end_of_episode(self):
+        # Update policy
+        iterate_policy(self.policy, self.model, num_steps=self.episodic_backup_steps, gamma=self.gamma, update_fn=self.get_bellman_backup_function())
+        BaseAgent.end_of_episode(self)

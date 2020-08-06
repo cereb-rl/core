@@ -17,7 +17,9 @@ class BaseAgent(object):
     episode_number: int
     step_number: int
 
-    def __init__(self, observation_space: Space, action_space: Space, name="BaseAgent", epsilon=0.9, gamma=0.6):
+    prev_reward: float
+
+    def __init__(self, observation_space: Space, action_space: Space, name="BaseAgent", epsilon=0.4, gamma=0.6):
         self.observation_space = observation_space
         self.action_space = action_space
 
@@ -31,19 +33,34 @@ class BaseAgent(object):
         # Setup State Trackers
         self.prev_state = None
         self.prev_action = None
-        self.prev_reward = None
         self.episode_number = 0
-        self.step_number = 0
+        self.learn_steps = 0
+        self.predict_steps = 0
+        self.episode_learn_steps = 0
+
+        # Setup policy and model
+        self.policy = None
+        self.model = None
 
         print(f'Creating {self.name} for environment with {self.observation_space} space and {self.action_space} actions')
 
-    def learn(self, state, reward, done=False):
+    def learn(self, state, reward=None, done=False):
         """
 
         :param state:
         :param reward:
         :param done:
         """
+        # update class
+        self.prev_state = state
+        self.prev_reward = reward
+
+        # if done, end episode
+        if done:
+            self.end_of_episode()
+
+        self.learn_steps += 1
+        self.episode_learn_steps += 1
         pass
 
     def predict(self, state):
@@ -51,7 +68,9 @@ class BaseAgent(object):
 
         :param state:
         """
-        pass
+        if self.policy:
+            return self.policy.get_max_action(state)
+        return self.action_space.sample()
 
     def start_of_episode(self, state):
         """
@@ -71,6 +90,7 @@ class BaseAgent(object):
         self.prev_action = None
         self.prev_reward = None
         self.episode_number += 1
+        self.episode_learn_steps = 0
 
     def reset(self):
         """
@@ -79,8 +99,15 @@ class BaseAgent(object):
         self.prev_state = None
         self.prev_action = None
         self.prev_reward = None
-        self.step_number = 0
         self.episode_number = 0
+        self.learn_steps = 0
+        self.predict_steps = 0
+        self.episode_learn_steps = 0
+
+        if self.policy:
+            self.policy.reset()
+        if self.model:
+            self.model.reset()
 
     def set_name(self, name):
         """
@@ -97,5 +124,13 @@ class BaseAgent(object):
         """
         return self.name
 
+    @property
+    def get_policy(self):
+        """
+
+        :return:
+        """
+        return self.policy
+
     def __str__(self):
-        return str(self.name)
+        return self.name + "\n" + str(self.policy) + "\n" + str(self.model)

@@ -19,7 +19,7 @@ from core.utils.policy_helpers import *
 RMAX_DEFAULTS = {
     'gamma': 0.95,
     'known_threshold': 2,
-    'max_reward': 20,
+    'max_reward': 1,
     'epsilon_one': 0.99
 }
 
@@ -45,9 +45,8 @@ class RMaxAgent(BaseAgent):
         # Policy Setup
         self.starting_policy = starting_policy
         self.backup_lim = int(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
-        self.stepwise_backup_steps = min(self.backup_lim, 1)
-        self.episodic_backup_steps = min(self.backup_lim, 3)
-        self.policy_iterations = 0
+        self.stepwise_backup_steps = 1 # self.backup_lim
+        self.episodic_backup_steps = min(self.backup_lim, 5)
 
         # Model Setup
         self.model = KnownTabularModel(action_space.n, self.max_reward, self.known_threshold)
@@ -60,7 +59,7 @@ class RMaxAgent(BaseAgent):
             Resets the agent model and policy back to its tabula rasa config.
         '''
         self.model.reset()
-        self.policy = self.starting_policy if self.starting_policy else DiscreteTabularPolicy(self.observation_space, self.action_space, self.max_reward)
+        self.policy = self.starting_policy if self.starting_policy else DiscreteTabularPolicy(self.observation_space, self.action_space, 0.3)
 
     def learn(self, state, reward, done=False):
         """
@@ -74,17 +73,15 @@ class RMaxAgent(BaseAgent):
 
         self.update(self.prev_state, self.prev_action, reward, state)
 
-        BaseAgent.learn(self, state, reward, done)
         self.prev_action = action
+        BaseAgent.learn(self, state, reward, done)
         return action
 
     def update(self, state, action, reward, next_state):
         if not self.model.is_known(state, action):
             self.model.update(state, action, reward, next_state)
-            if self.model.is_known_state(state):
-                iterate_policy(self.policy, self.model, states=self.model.get_known_states(), num_steps=self.stepwise_backup_steps, gamma=self.gamma)
+            iterate_policy(self.policy, self.model, states=self.model.get_known_states(), num_steps=self.stepwise_backup_steps, gamma=self.gamma)
 
     def end_of_episode(self):
-        if self.episode_learn_steps:
-            iterate_policy(self.policy, self.model, states=self.model.get_known_states(), num_steps=self.episodic_backup_steps, gamma=self.gamma)
+        iterate_policy(self.policy, self.model, states=self.model.get_known_states(), num_steps=self.episodic_backup_steps, gamma=self.gamma)
         BaseAgent.end_of_episode(self)
