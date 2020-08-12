@@ -44,7 +44,6 @@ class ECubedAgent(BaseAgent):
         BaseAgent.__init__(self, observation_space, action_space, name)
 
         # Hyper-parameters
-        self.params = dict(ECUBED_DEFAULTS).update(extra_params)
         self.max_reward = self.params['max_reward']
         self.epsilon_one = self.params['epsilon_one']
         self.known_threshold = self.params['known_threshold']

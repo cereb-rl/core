@@ -3,23 +3,13 @@
 # Python imports
 
 # External imports
-from gym.spaces import Space
-
+from gym.spaces import Space, Discrete
 
 class BaseAgent(object):
     """ Abstract Agent class. """
-    name: str
 
-    # Standard Parameters
-    epsilon: int
-    gamma: int
-
-    episode_number: int
-    step_number: int
-
-    prev_reward: float
-
-    def __init__(self, observation_space: Space, action_space: Space, name="BaseAgent", epsilon=0.4, gamma=0.6):
+    def __init__(self, observation_space: Space, action_space: Space, name="BaseAgent", params={'gamma': 0.95}):
+        # assert isinstance(observation_space, Discrete) and isinstance(action_space, Discrete)
         self.observation_space = observation_space
         self.action_space = action_space
 
@@ -27,8 +17,8 @@ class BaseAgent(object):
         self.name = name
 
         # Standard Parameters
-        self.epsilon = epsilon
-        self.gamma = gamma
+        self.params = params
+        self.gamma = self.params['gamma']
 
         # Setup State Trackers
         self.prev_state = None
@@ -104,8 +94,7 @@ class BaseAgent(object):
         self.predict_steps = 0
         self.episode_learn_steps = 0
 
-        if self.policy:
-            self.policy.reset()
+        self.policy = self.starting_policy
         if self.model:
             self.model.reset()
 

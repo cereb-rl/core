@@ -2,8 +2,25 @@ from IPython.display import clear_output
 from time import sleep
 import gym
 import visdom
-import numpy as np
+import numpy as np, math, sys
 
+def disc(obs, env):
+    return obs
+    buckets=np.array([10,10])
+    l_bound=np.array([0,0])
+    u_bound=np.array([9,9])
+    ''' discretise the continuous state into buckets '''
+    ratios = (obs + abs(l_bound)) / (u_bound - l_bound)
+    new_obs = np.array(np.ceil(np.multiply(buckets, ratios)), dtype=np.int32)
+    new_obs = np.minimum(np.maximum(new_obs, np.ones(shape=buckets.shape, dtype=np.int32)), buckets)
+    # Mapping obs list to integer based on buckets
+    # print(new_obs)
+    new_obs_int, c_prod = 0, 1
+    for i in range(buckets.shape[0]):
+        new_obs_int += c_prod * (new_obs[i] - 1)
+        c_prod *= buckets[i]
+    #print(new_obs_int)
+    return new_obs_int
 
 class Experiment:
     """
@@ -23,7 +40,7 @@ class Experiment:
         self.agents = agents if agents else []
         self.exp_name = exp_name
         agent_names: str = ', '.join(agent.get_name for agent in agents)
-        print(f'Starting {self.exp_name} on {self.exp_name} environment with {agent_names}')
+        print(f'Starting {self.exp_name} on {self.env.unwrapped.spec.id} environment with {agent_names}')
 
         self.verbose = verbose
         self.visuals = visuals
@@ -58,7 +75,7 @@ class Experiment:
                     height=800,
                     xlabel='Episodes',
                     ylabel='Episode Rewards',
-                    title='Episodic Reward Plot',
+                    title=f'Episodic Reward Plot on {self.env.unwrapped.spec.id}',
                     legend=[agent.get_name for agent in self.agents]
                 ),
             )
@@ -69,8 +86,8 @@ class Experiment:
                 width=800,
                 height=800,
                 xlabel='Episodes',
-                ylabel='Number of Steps',
-                title='Episodic Step Plot',
+                ylabel=f'Number of Steps',
+                title=f'Episodic Step Plot on {self.env.unwrapped.spec.id}',
                 legend=[agent.get_name for agent in self.agents]
             ),
         )
@@ -100,10 +117,10 @@ class Experiment:
                 total_steps[i] += steps
                 #total_episodes[i] += 1
 
-                if ep % (num_episodes/100) == 0:
+                if ep % (num_episodes/50) == 0:
                     clear_output(wait=True)
                     print(f'Episode: {ep} for agent {self.agents[i].get_name}')
-                    print('agent epsilon',self.agents[i].epsilon)
+                    # print('agent epsilon',self.agents[i].epsilon)
                 loop_count += 1
             self.visdom.line(
                 Y=[loop_rewards],
@@ -127,33 +144,7 @@ class Experiment:
             print()
 
 
-    def train_single_agent(self, agent, num_steps: int):
-        """
-
-        :param agent:
-        :param num_steps:
-        """
-        total_steps, num_episodes, total_reward = 0, 0, 0
-        while total_steps < num_steps:
-            steps, rewards = self.run_single_episode(agent, True)
-
-            total_reward += rewards
-            total_steps += steps
-            num_episodes += 1
-
-            if num_episodes % 100 == 0:
-                clear_output(wait=True)
-            print(f'Episode: {num_episodes}')
-
-        print("Training finished.\n")
-
-        print(f"Results after {num_episodes} episodes:")
-        print(f"Average timesteps per episode: {total_steps / num_episodes}")
-        print(f"Average rewards per episode: {total_reward / num_episodes}")
-        print()
-        return agent
-
-    def run_single_episode(self, agent, is_train=False, max_steps=1000):
+    def run_single_episode(self, agent, is_train=False, render=False, max_steps=200):
         """
 
         :param is_train: Is this a training episode?
@@ -161,17 +152,19 @@ class Experiment:
         :return: total number of steps and total rewards obtained
         """
         state = self.env.reset()
-        action = agent.start_of_episode(state)
+        action = agent.start_of_episode(disc(state, self.env))
         steps, rewards = 0, 0
         done = False
         frames = []  # for animation
+        if render:
+                self.env.render()
 
         while not done and steps <= max_steps:
             state, reward, done, info = self.env.step(action)
             if is_train:
-                action = agent.learn(state, reward)
+                action = agent.learn(disc(state, self.env), reward)
             else:
-                action = agent.predict(state)
+                action = agent.predict(disc(state, self.env))
             if self.verbose:
                 # Put each rendered frame into dict for animation
                 frames.append({

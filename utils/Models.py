@@ -92,7 +92,7 @@ class TabularModel:
         return str(self.transitions) + "\n" + str(self.rewards) + "\n" + str(self.state_action_counts)
 
     # def __getitem__(self, key):
-
+    # def __getitem__(self, key):
 
 class KnownTabularModel(TabularModel):
     '''

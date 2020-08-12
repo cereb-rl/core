@@ -1,1 +1,1 @@
-from core.environments.env import GymEnvWrapper
+from core.environments.wrappers import getWrappedEnv
