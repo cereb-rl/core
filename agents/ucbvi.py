@@ -68,23 +68,6 @@ class UCBVIAgent(BaseAgent):
         self.model.reset()
         self.policy = self.starting_policy if self.starting_policy else DiscreteTabularPolicy(self.observation_space, self.action_space, default_value=1/(1-self.gamma))
 
-    def learn(self, state, reward, done=False):
-        """
-
-        :param state:
-        :param reward:
-        :param done:
-        :return:
-        """
-        action = self.policy.get_max_action(state)  # Exploit learned values
-
-        if self.prev_state and self.prev_action:
-            self.update(self.prev_state, self.prev_action, reward, state)
-
-        BaseAgent.learn(self, state, reward, done)
-        self.prev_action = action
-        return action
-
     def update(self, state, action, reward, next_state):
         self.model.update(state, action, reward, next_state)
         self.last_episode.append((state, action, reward, next_state))

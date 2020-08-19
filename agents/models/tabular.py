@@ -6,21 +6,16 @@ class DiscreteTabularModel:
         Implements a tabular MDP model for a discrete state and action space
     '''
 
-    def __init__(self, observation_space: Space, action_space: Space, default_reward = 0, is_known_mdp=False, limit=10000):
+    def __init__(self, observation_space: Space, action_space: Space, default_reward = 0, limit=10000):
         self.observation_space = observation_space
         self.action_space = action_space
         self.default_reward = default_reward
-        self.is_known_mdp = is_known_mdp   # is a threshold mdp like R-Max
         self.known_threshold = limit
         self.limit = limit
 
         self.counts = None
         self.rewards = None
         self.transitions = None
-
-        # only for threshold mdps like R-Max
-        self.known_rewards = None
-        self.known_transitions = None
 
         self.reset()
 
@@ -44,28 +39,19 @@ class DiscreteTabularModel:
             for action in range(self.action_space.n):
                 self.transitions[state,action,state] = 1
 
-        if self.is_known_mdp:
-            self.known_rewards = np.array(self.rewards)
-            self.known_transitions = np.array(self.transitions)
-
     def update(self, state, action, reward, next_state):
         if (state is not None) and (action is not None) and (self.counts[state, action] < self.limit):
-            was_not_known = not self.is_known(state, action)
 
             # Update rewards
             self.rewards[state, action] = (self.rewards[state, action]*self.counts[state, action] + reward) / (self.counts[state, action]+1)
+
             # Update probabilities
             transition_counts = self.transitions[state, action]*self.counts[state, action]
             transition_counts[next_state] += 1
             self.transitions[state, action] = transition_counts/(self.counts[state, action]+1)
+            
             # Update counts
             self.counts[state, action] += 1
-
-            # New known (state, action) pair
-            if self.is_known_mdp and was_not_known and self.is_known(state, action):
-                self.known_rewards[state] = self.rewards[state]
-                self.known_transitions[state] = self.transitions[state]
-
 
     def get_reward(self, state, action):
         return self.rewards[state, action]

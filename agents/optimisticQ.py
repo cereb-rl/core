@@ -23,6 +23,15 @@ QLEARNING_DEFAULTS: Dict[str, float] = {
     'decay_rate': 0.01,    # Exponential decay rate for exploration prob
 }
 
+QLEARNING_REQS: Dict[str, str] = {
+    'observation_space': 'discrete',  # discount factor
+    'alpha': 0.7,  # learning rate
+    'epsilon': 1,  # exploration factor
+    'max_epsilon': 1,    # Exploration probability at start
+    'min_epsilon': 0.01,  # Minimum exploration probability
+    'decay_rate': 0.01,    # Exponential decay rate for exploration prob
+}
+
 
 class OptimisticQAgent(BaseAgent):
     """

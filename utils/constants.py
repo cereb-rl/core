@@ -1,5 +1,12 @@
 from enum import Enum, auto
 
+class SpaceTypes:
+    ANY = 0
+    DISCRETE = 1
+    FLATBOX = 2
+    BOX = 3
+    OTHER = 4
+
 class Policy:
     class Init(Enum):
         ONES = auto()

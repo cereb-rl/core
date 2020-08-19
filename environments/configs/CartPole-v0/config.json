@@ -1,0 +1,7 @@
+{
+    "max_reward": 20,
+    "min_reward": -10,
+    "obs_buckets": [4, 4, 6, 12],
+    "obs_low": [, -0.5, , ],
+    "obs_high": [, 0.5, , ],
+}
