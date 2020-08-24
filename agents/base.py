@@ -3,14 +3,25 @@
 # Python imports
 
 # External imports
-from gym.spaces import Space, Discrete
+from gym.spaces import Space
+
 
 class BaseAgent(object):
     """ Abstract Agent class. """
+
     alpha = 0.5,
     gamma = 1,
 
-    def __init__(self, observation_space: Space, action_space: Space, name="BaseAgent", params={'gamma': 0.95}, specs=None):
+    def __init__(self, observation_space: Space, action_space: Space, name="BaseAgent", params={'gamma': 0.95},
+                 specs=None):
+        """
+
+        :param observation_space: Environment's observation space
+        :param action_space: Environment's action space
+        :param name: Agent's Name
+        :param params: Hyper-parameters etc
+        :param specs: Specifies space types agent is compactible with (eg Discrete for RMax)
+        """
 
         # Check that we have valid inputs
         if specs:
@@ -45,14 +56,17 @@ class BaseAgent(object):
         self.predict_policy = None
         self.model = None
 
-        print(f'Creating {self.name} for environment with {self.observation_space} space and {self.action_space} actions')
+        print(
+            f'Creating {self.name} for environment with {self.observation_space} space and {self.action_space} actions')
 
     def learn(self, state, reward=None, done=False):
         """
+        Returns an action during agent's training
 
-        :param state:
-        :param reward:
-        :param done:
+        :param state: new environment state
+        :param reward: reward due to arriving in state
+        :param done: boolean indicating whether the episode is complete
+        :return action: an action to take on the environment
         """
         # do stepwise update
         self.stepwise_update(state, reward)
@@ -74,7 +88,7 @@ class BaseAgent(object):
             self.end_of_episode()
 
         return self.prev_action
-    
+
     def stepwise_update(self, state, reward):
         """
         agent implements this
@@ -83,8 +97,11 @@ class BaseAgent(object):
 
     def predict(self, state):
         """
+        Returns an action during agent's training
 
-        :param state:
+        :param state: new environment state
+        :return action: agent's optimal action
+
         """
         if self.predict_policy:
             return self.predict_policy.get_action(state)
@@ -93,8 +110,8 @@ class BaseAgent(object):
     def start_of_episode(self, state):
         """
 
-        :param state:
-        :return: action
+        :param state: environment start state
+        :return: action to take
         """
         self.prev_state = state
         self.prev_action = self.action_space.sample()
@@ -114,7 +131,7 @@ class BaseAgent(object):
         self.episode_number += 1
         self.total_learn_steps += self.episode_learn_steps
         self.episode_learn_steps = 0
-    
+
     def episodic_update(self):
         """
         agent implements this
@@ -135,13 +152,18 @@ class BaseAgent(object):
 
         self.learn_policy = None
         self.predict_policy = None
-        
+
         if self.model:
             self.model.reset()
-    
-    def validate(self, observation_space, action_space, specs):
-        pass
 
+    def validate(self, observation_space, action_space, specs):
+        """
+
+        :param observation_space:
+        :param action_space:
+        :param specs:
+        """
+        pass
 
     def set_name(self, name):
         """
@@ -167,4 +189,4 @@ class BaseAgent(object):
         return self.predict_policy
 
     def __str__(self):
-        return self.name + "\n" + str(self.policy) + "\n" + str(self.model)
+        return self.name + "\n" + str(self.predict_policy) + "\n" + str(self.model)

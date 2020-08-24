@@ -19,12 +19,12 @@ from core.utils import constants, specs
 
 RMAX_DEFAULTS = {
     'epsilon': 0,  # There's no exploration in R-Max
-    'gamma': 0.95,
-    'known_threshold': 5,
-    'max_reward': 1,
-    'epsilon_one': 0.99,
-    'max_stepwise_backups': 20,
-    'max_episodic_backups': 0,
+    'gamma': 0.95,  # discount factor
+    'known_threshold': 5,  # number of occurrences of (state, action) pairs before it is marked as known
+    'max_reward': 1,  # maximum reward
+    'epsilon_one': 0.99,  #
+    'max_stepwise_backups': 20,  # maximum number of backups per experience/transition during training
+    'max_episodic_backups': 0,  # maximum number of backups at the end of an episode
 }
 
 RMAX_SPEC = specs.AgentSpec(
